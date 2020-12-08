@@ -1058,6 +1058,8 @@ Resources:
           AttributeType: 'S'
         - AttributeName: 'category'
           AttributeType: 'S'
+        - AttributeName: 'accountId'
+          AttributeType: 'S'
       KeySchema:
         - AttributeName: 'id'
           KeyType: 'HASH'
@@ -1066,6 +1068,12 @@ Resources:
         - IndexName: ${self:custom.settings.dbStudiesCategoryIndex}
           KeySchema:
             - AttributeName: 'category'
+              KeyType: 'HASH'
+          Projection:
+            ProjectionType: 'ALL'
+        - IndexName: ${self:custom.settings.dbStudiesAccountIdIndex}
+          KeySchema:
+            - AttributeName: 'accountId'
               KeyType: 'HASH'
           Projection:
             ProjectionType: 'ALL'
