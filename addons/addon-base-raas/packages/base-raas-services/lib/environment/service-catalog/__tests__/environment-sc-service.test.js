@@ -257,6 +257,91 @@ describe('EnvironmentSCService', () => {
     });
   });
 
+  describe('update study roles', () => {
+    it('throw error if studyRoleMap is invalid', async () => {
+      // BUILD
+      const uid = 'u-12345';
+      const requestContext = { principalIdentifier: { uid } };
+
+      const env = {
+        id: 'oldId',
+        name: 'exampleName',
+        envTypeId: 'exampleETI',
+        envTypeConfigId: 'exampleETCI',
+        updatedBy: {
+          username: 'user',
+        },
+        studyIds: ['study1'],
+      };
+      const studyRoles = {
+        study1: 123,
+      };
+      service.audit = jest.fn();
+      service.mustFind = jest.fn().mockResolvedValueOnce(env);
+
+      // OPERATE
+      try {
+        await service.updateStudyRoles(requestContext, 'oldId', studyRoles);
+        expect.hasAssertions();
+      } catch (err) {
+        expect(err.message).toBe(
+          "The study role map can only contain values of type string and can not be empty. Received incorrect value for the key 'study1'",
+        );
+      }
+
+      // CHECK
+      expect(dbService.table.update).not.toHaveBeenCalled();
+      expect(service.mustFind).toHaveBeenNthCalledWith(1, expect.objectContaining(requestContext), {
+        id: 'oldId',
+        fetchCidr: false,
+      });
+      expect(service.assertAuthorized).toHaveBeenCalledWith(
+        requestContext,
+        expect.objectContaining({ action: 'update-study-role-map', conditions: [service._allowAuthorized] }),
+        env,
+      );
+    });
+
+    it('should succeed to update study roles', async () => {
+      // BUILD
+      const uid = 'u-12345';
+      const requestContext = { principalIdentifier: { uid } };
+
+      const env = {
+        id: 'oldId',
+        name: 'exampleName',
+        envTypeId: 'exampleETI',
+        envTypeConfigId: 'exampleETCI',
+        updatedBy: {
+          username: 'user',
+        },
+        studyIds: ['study1', 'study2'],
+      };
+      const studyRoles = {
+        study1: 'arn:aws:iam::012345678900:role/swb-random-fs-1615225782025',
+      };
+      service.audit = jest.fn();
+      service.mustFind = jest.fn().mockResolvedValueOnce(env);
+
+      // OPERATE
+      await service.updateStudyRoles(requestContext, 'oldId', studyRoles);
+
+      // CHECK
+      expect(dbService.table.key).toHaveBeenCalledWith({ id: env.id });
+      expect(dbService.table.item).toHaveBeenCalledWith({ studyRoles, updatedBy: uid });
+      expect(dbService.table.update).toHaveBeenCalled();
+      expect(service.mustFind).toHaveBeenNthCalledWith(1, expect.objectContaining(requestContext), {
+        id: 'oldId',
+        fetchCidr: false,
+      });
+      expect(service.assertAuthorized).toHaveBeenCalledWith(
+        requestContext,
+        expect.objectContaining({ action: 'update-study-role-map', conditions: [service._allowAuthorized] }),
+        env,
+      );
+    });
+  });
+
   describe('update function', () => {
     it('should fail because the environment is missing a rev value ', async () => {
       // BUILD

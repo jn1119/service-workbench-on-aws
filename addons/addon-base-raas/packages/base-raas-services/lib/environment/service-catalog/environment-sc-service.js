@@ -311,7 +311,7 @@ class EnvironmentScService extends Service {
     return _.filter(envs, env => !_.includes(filterStatus, env.status) && !env.status.includes('FAILED'));
   }
 
-  async find(requestContext, { id, fields = [] }) {
+  async find(requestContext, { id, fields = [], fetchCidr = true }) {
     // Make sure 'createdBy' is always returned as that's required for authorizing the 'get' action
     // If empty "fields" is specified then it means the caller is asking for all fields. No need to append 'createdBy'
     // in that case.
@@ -339,17 +339,19 @@ class EnvironmentScService extends Service {
           environmentScStatus.STARTING,
         ],
         env.status,
-      )
+      ) &&
+      fetchCidr
     ) {
       const { currentIngressRules } = await this.getSecurityGroupDetails(requestContext, env);
       env.cidr = currentIngressRules;
     }
     const [toReturn] = await this.augmentWithConnectionInfo(requestContext, [env]);
+    this.log.info('Augmented connection info');
     return toReturn;
   }
 
-  async mustFind(requestContext, { id, fields = [] }) {
-    const result = await this.find(requestContext, { id, fields });
+  async mustFind(requestContext, { id, fields = [], fetchCidr = true }) {
+    const result = await this.find(requestContext, { id, fields, fetchCidr });
     if (!result) throw this.boom.notFound(`environment with id "${id}" does not exist`, true);
     return result;
   }
@@ -559,7 +561,8 @@ class EnvironmentScService extends Service {
    * @param rawData The study role map. Keys are the study ids and values are the role arns
    */
   async updateStudyRoles(requestContext, id, rawData) {
-    const envEntity = await this.mustFind(requestContext, { id });
+    // disable CIDR fetching to save latency. We don't need CIDR ranges here for updating study roles
+    const envEntity = await this.mustFind(requestContext, { id, fetchCidr: false });
     await this.assertAuthorized(
       requestContext,
       { action: 'update-study-role-map', conditions: [this._allowAuthorized] },
